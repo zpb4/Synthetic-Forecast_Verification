@@ -6,6 +6,10 @@
 
 /src/.Rhistory
 /src/.DS_Store
+/src/ecrps_reconfigure.R
+/src/out_bounds_testing.R
+/src/plot_ensembles_old.R
+/src/zero_mod_results_syn1.R
 
 /data
 /figs
