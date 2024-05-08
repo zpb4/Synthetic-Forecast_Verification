@@ -10,7 +10,7 @@ library(scales)
 library(dplyr)
 source('./src/forecast_verification_functions.R')
 
-syn_vers<-'v1'
+syn_vers<-'v2'
 syn_forecast_path <- paste('z:/Synthetic-Forecast-',syn_vers,'-FIRO-DISES/',sep='')
 v1_mod<-'bvar1-sged' #specify model type for the 'v1' approach
 
@@ -35,7 +35,7 @@ lds<-c(1,4,7,10)  #specify leads (no more than 5 for plotting constraints)
 ens_samp<-1
 bins<-20 # no of bins for binned spread-mse diagrams
 pcnt<-c(0.9,1) # quantile (lwr,upr) for cumul rank histograms and eCRPS
-data_sset<-'test' # 'cal', 'val', or 'test'
+data_sset<-'cal' # 'cal', 'val', or 'test'
 plt_out<-T # T to show plots, F to save png files
 
 ixx_gen <- readRDS(paste(syn_forecast_path,'out/ixx_gen.rds',sep='')) 

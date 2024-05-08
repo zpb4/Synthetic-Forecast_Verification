@@ -83,12 +83,17 @@ bin_mse<-function(ens_mns,obs,ens_num){
 eCRPS<-function(ens,obs){
   m<-length(ens)
   t1<-(1/m)*sum(abs(ens-obs))
-  t2<-array(0,c(m,m))
-  for(i in 1:(m-1)){
-    for(j in (i+1):m){
-      t2[i,j]<-abs(ens[i]-ens[j])
-    }
-  }
+  #t2<-array(0,c(m,m))
+  #for(i in 1:(m-1)){
+    #for(j in (i+1):m){
+      #t2[i,j]<-abs(ens[i]-ens[j])
+    #}
+  #}
+  
+  mat1 = matrix(rep(ens,each=length(ens)),ncol=length(ens),byrow=F)
+  mat2 = matrix(rep(ens,length(ens)),ncol=length(ens),byrow=F)
+  t2 = abs(mat1[lower.tri(mat1)]-mat2[lower.tri(mat2)])
+  
   t2_res<-(1 / (m*(m-1)))*sum(t2)
   return(t1 - t2_res)
 }

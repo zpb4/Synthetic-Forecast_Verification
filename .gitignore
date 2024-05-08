@@ -7,7 +7,7 @@
 /src/.Rhistory
 /src/.DS_Store
 
-/out
+/data
 /figs
 
 *.nc
@@ -17,3 +17,4 @@
 *.txt
 *.jpg
 *.png
+/src/__pycache__*
