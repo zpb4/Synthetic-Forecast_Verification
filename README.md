@@ -1,5 +1,6 @@
 # Synthetic-Forecast_Verification
 A set of forecast verification routines to evaluate synthetic hydrologic ensemble forecasts against actual forecasts. This repository is aligned with the data generated from two synthetic forecasting approaches that are located in the following GitHub repos:   
+    
 Synthetic Forecast version 1 [https://github.com/zpb4/Synthetic-Forecast-v1-FIRO-DISES](https://github.com/zpb4/Synthetic-Forecast-v1-FIRO-DISES)   
 Synthetic Forecast version 2 [https://github.com/zpb4/Synthetic-Forecast-v2-FIRO-DISES](https://github.com/zpb4/Synthetic-Forecast-v2-FIRO-DISES)   
 
@@ -10,11 +11,11 @@ To run these scripts, one must generate synthetic forecast samples from one or b
 ## Workflow   
 Note: Current date/time indices are setup to be compatible for all current hindcast sites that are available to be generated (ADO, LAM, NHG, YRS). These sites all have different lengths of available observations and HEFS; the date chosen are common across all of them.
 ### Required pre-run items in synthetic forecast scripts
-As noted above, it is required to run the associated synthetic forecast algorithms to generate both HEFS and syn-HEFS forecasts to compare (until pre-staged data are made available). To prepare data for visualization, you must also run the following scripts in the synthetic forecast repos:
+As noted above, it is required to run the associated synthetic forecast algorithms to generate both HEFS and syn-HEFS forecasts to compare _(until pre-staged data are made available)_. To prepare data for visualization, you must also run the following scripts in the synthetic forecast repos:
 
 -  ./src/slice_plot-ens.R - slices a 10-sample chunk from the full synthetic forecast dataset. You still need to run this, even if generating only 10 samples, to conform with the naming convention of the R verification script
 -  ./src/data_writeout_ncdf.R - converts .rds array to netCDF file for extraction via Python routines
--  ./src/val_yrs_select.R - selects a set of 6 validation years that are distributionally similar to the calibration years. Output of this script is an input to the Python plotting routines that only show VAL performance.
+
 ### Data extraction and processing
 These Python scripts must be run first with the appropriate parameterization inputs to extract and process data for visualization in the Python plotting routines:
 - ./src/extract_syn-forecasts.py - extracts synthetic forecast for a specific site from the multisite array in preparation for visualization
@@ -26,3 +27,6 @@ Note: these routines are currently being built out; routines in _italics_ are in
 - ./src/forc-ensemble-verification.py - main set of manuscript quality figures that compares the two forecast methods across 3 common metrics; metrics are shown only for VAL years from model fitting
 - _./src/forc-ensemble-verification_cumul.py - as above, but for cumulative forecast statistics; currently needs updated to multisite setup_
 - _./src/ensemble-plot.py - ensemble plotting routine for manuscript quality figures; needs updated to multisite setup_
+
+### Contact
+Zach Brodeur, zpb4@cornell.edu
