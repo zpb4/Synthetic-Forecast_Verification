@@ -8,7 +8,7 @@ library(zoo)
 syn_vers = 2
 loc = 'YRS'
 site = 'NBBC1'
-parm = 'q'
+parm = 'i'
 
 path = paste('z:/Synthetic-Forecast-v',syn_vers,'-FIRO-DISES/',sep='')
 
@@ -31,8 +31,8 @@ cur_site <- which(site_names==site)
 
 obs_rank <- 3   #pick which obs event to plot (1 largest, 2 second largest, etc)
 #get date for plot
-#obs_date_loc <- match('1997-01-02',as.character(ixx_obs))
-obs_date_loc <- which(obs[,cur_site]==sort(obs[,cur_site],decreasing=TRUE)[obs_rank])  #index for maximum observation
+obs_date_loc <- match('1997-01-02',as.character(ixx_obs))
+#obs_date_loc <- which(obs[,cur_site]==sort(obs[,cur_site],decreasing=TRUE)[obs_rank])  #index for maximum observation
 obs_date <- ixx_obs[obs_date_loc]
 hefs_date_loc <- match(obs_date,ixx_hefs)
 syn_hefs_date_loc <- match(obs_date,ixx_sim)

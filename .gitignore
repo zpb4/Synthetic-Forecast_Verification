@@ -17,6 +17,7 @@
 *.nc
 *.RData
 *.rds
+*.cmd
 *.zip
 *.txt
 *.jpg

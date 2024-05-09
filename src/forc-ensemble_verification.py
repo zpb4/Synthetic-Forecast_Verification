@@ -34,15 +34,17 @@ kcfs_to_tafd = 2.29568411*10**-5 * 86400
 K = 317 # TAF
 Rmax = 12.5 * kcfs_to_tafd # estimate - from MBK
 
-loc='ADO'
-site='ADOC1'
+loc='YRS'
+site='NBBC1'
 val_samps=6
 
+#extracted date index for syn-forecasts
 sd_syn = '1985-10-15' 
 ed_syn = '2019-08-15'
 
 idx_syn = pd.date_range(start = sd_syn, end = ed_syn )
 
+#date range of consideration (inclusive of all sites and HEFS avail dates)
 sd = '1990-10-01' 
 ed = '2019-08-15'
 sl_idx = idx_syn.slice_indexer(sd,ed)
@@ -51,7 +53,7 @@ syn_vers1 = 'v1'    # synthetic forecast version; 'v1' or 'v2'
 syn_vers1_param = 'a'
 syn_path1 = 'z:/Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers1) # path to R synthetic forecast repo for 'r-gen' setting below
 syn_vers2 = 'v2'    # synthetic forecast version; 'v1' or 'v2'
-syn_vers2_param = 'm'
+syn_vers2_param = 'i'
 syn_path2 = 'z:/Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers2) # path to R synthetic forecast repo for 'r-gen' setting below
 nsamps = 10
 ld = 1

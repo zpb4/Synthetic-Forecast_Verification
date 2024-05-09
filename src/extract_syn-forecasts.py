@@ -11,14 +11,14 @@ print('extract start',now.strftime("%H:%M:%S"))
 sd = '1985-10-15' 
 ed = '2019-08-15'
 
-loc = 'ADO'
-site = 'ADOC1'
+loc = 'YRS'
+site = 'ORDC1'
 
 syn_vers1 = 'v1'
 syn_vers1_param = 'a'
 syn_path1 = '../Synthetic-Forecast-%s-FIRO-DISES' %(syn_vers1) # path to R synthetic forecast repo for 'r-gen' setting below
 syn_vers2 = 'v2'
-syn_vers2_param = 'm'
+syn_vers2_param = 'i'
 syn_path2 = '../Synthetic-Forecast-%s-FIRO-DISES' %(syn_vers2) # path to R synthetic forecast repo for 'r-gen' setting below
 nsamps = 10
 
