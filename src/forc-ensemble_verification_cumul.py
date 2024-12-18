@@ -4,10 +4,13 @@ Created on Thu Jan  4 11:22:54 2024
 
 @author: zpb4
 """
+import sys
+import os
+sys.path.insert(0, os.path.abspath('./src'))
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import model
+import syn_util
 import ensemble_verification_functions as verify
 from time import localtime, strftime
 from datetime import datetime
@@ -26,37 +29,52 @@ cv2 = colv1[4]  #version 1 is pink-purplish color
 cv1 = colv2[6]  #version 2 is orangey-brown color
 chefs = col_cb[0]  #hefs is colorblind blue
 
-# to simulate a policy, replace 'firo_pool' and 'risk_thresholds' with those found in the train.py file
-kcfs_to_tafd = 2.29568411*10**-5 * 86400
-K = 317 # TAF
-Rmax = 12.5 * kcfs_to_tafd # estimate - from MBK
-sd = '1989-10-01' 
-ed = '2019-09-15'
+loc = 'YRS'
+site = 'ORDC1'
+vers_out1 = 'oos'
+vers_out2 = 'oos'
+
+syn_vers1 = 'v1'
+syn_vers2 = 'v2'
+#val_samps=6
+
+#extracted date index for syn-forecasts
+sd_syn = '1985-10-15' 
+ed_syn = '2019-08-15'
+
+idx_syn = pd.date_range(start = sd_syn, end = ed_syn )
+
+#date range of consideration (inclusive of all sites and HEFS avail dates)
+sd = '1990-10-01' 
+ed = '2019-08-15'
+sl_idx = idx_syn.slice_indexer(sd,ed)
 save_figs = True  # T to show plots, F to save .png files to ./plot repo
-syn_vers1 = 'v1'    # synthetic forecast version; 'v1' or 'v2'
-syn_vers1_param = 'a' 
-syn_path1 = 'z:/Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers1) # path to R synthetic forecast repo for 'r-gen' setting below
-syn_vers2 = 'v2'    # synthetic forecast version; 'v1' or 'v2'
-syn_vers2_param = 'i'
-syn_path2 = 'z:/Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers2) # path to R synthetic forecast repo for 'r-gen' setting below
-gen_path = 'r-gen'
-nsamps = 10
-val_yrs = (1991,1994,1996,1997,2018,2020)
+
+nsamps = 100
+ld = 13
+ld2 = 14
+lds = (9,10,11,12)
+pcnt_rnk = (0.99,1)
+pcnt_bse = (0,1)
+low_pcnt_ecrps = (0,0.99)
+upr_pcnt_ecrps = (0.99,1)
 
 
-Q_hefs_inp,Q_MSG_hefs,Qf_hefs_inp,Qf_MSG_hefs_inp,dowy_hefs_trn,tocs,df_idx_hefs = model.extract(sd,ed,forecast_type='hefs',syn_sample='Synth1',gen_path=gen_path,Rsyn_path=syn_path1)
+Q_hefs_inp,Qf_hefs_inp,dowy_hefs_trn,tocs,df_idx_hefs = syn_util.extract(sd,ed,forecast_type='hefs',syn_sample='',Rsyn_path='../Synthetic-Forecast-v1-FIRO-DISES',syn_vers='',forecast_param='',loc=loc,site=site,opt_pcnt=0.99,gen_setup='')
 Qf_hefs_trn = verify.onesamp_forecast_rearrange_cumul(Qf_hefs_inp)
 Q_hefs_trn = verify.tgt_cumul(Q_hefs_inp, nl=np.shape(Qf_hefs_inp)[2])
 #Qf_MSG_hefs = verify.onesamp_forecast_rearrange(Qf_MSG_hefs_inp)
 
-wy_vec = df_idx_hefs.year.values
-wy_vec[np.isin(df_idx_hefs.month,[10,11,12])] = wy_vec[np.isin(df_idx_hefs.month,[10,11,12])]+1
+#wy_vec = df_idx_hefs.year.values
+#wy_vec[np.isin(df_idx_hefs.month,[10,11,12])] = wy_vec[np.isin(df_idx_hefs.month,[10,11,12])]+1
 
-val_idx = np.arange(len(df_idx_hefs))[np.isin(wy_vec,val_yrs)]
-df_idx_val = df_idx_hefs[val_idx]
+#val_idx = np.arange(len(df_idx_hefs))[np.isin(wy_vec,val_yrs)]
+#df_idx_val = df_idx_hefs[val_idx]
+#val_idx = np.arange(len(Q_hefs_inp))  #val index to use for entire dataset
+val_idx = np.arange(len(Q_hefs_trn))  #val index to use for entire dataset
 
-Qf_v1_inp = np.load('data/Qf_syn-forecast%s_nsamp=%s.npz' %(syn_vers1+syn_vers1_param,nsamps))['arr']
-Qf_v1_trn = verify.multisamp_forecast_rearrange_cumul(Qf_v1_inp)
+Qf_v1_inp = np.load('data/%s-%s_Qf_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers1+vers_out1,nsamps))['arr']
+Qf_v1_trn = verify.multisamp_forecast_rearrange_cumul(Qf_v1_inp[:,sl_idx,:,:])
 Qf_v1 = Qf_v1_trn[:,val_idx,:,:]
 
 del Qf_v1_inp,Qf_v1_trn
@@ -64,8 +82,8 @@ del Qf_v1_inp,Qf_v1_trn
 #Qf_MSG_v1_inp = np.load('data/Qf_MSG_syn-forecast%s_nsamp=%s.npz' %(syn_vers1,nsamps))['arr']
 #Qf_MSG_v1 = verify.multisamp_forecast_rearrange(Qf_MSG_v1_inp)
 
-Qf_v2_inp = np.load('data/Qf_syn-forecast%s_nsamp=%s.npz' %(syn_vers2+syn_vers2_param,nsamps))['arr']
-Qf_v2_trn = verify.multisamp_forecast_rearrange_cumul(Qf_v2_inp)
+Qf_v2_inp = np.load('data/%s-%s_Qf_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers2+vers_out2,nsamps))['arr']
+Qf_v2_trn = verify.multisamp_forecast_rearrange_cumul(Qf_v2_inp[:,sl_idx,:,:])
 Qf_v2 = Qf_v2_trn[:,val_idx,:,:]
 
 del Qf_v2_inp,Qf_v2_trn
@@ -78,28 +96,26 @@ del Qf_v2_inp,Qf_v2_trn
 Qf_hefs = Qf_hefs_trn[val_idx,:,:]
 Q_hefs = Q_hefs_trn[val_idx]
 dowy_hefs = dowy_hefs_trn[val_idx]
-pcnt = (0.9,1)
-ld = 1
-ld2 = 2
 fsort = False
-sset_idx = np.where((dowy_hefs>60) & (dowy_hefs<170))[0]
+#sset_idx = np.where((dowy_hefs>60) & (dowy_hefs<170))[0]
+sset_idx = np.arange(len(Q_hefs_trn))
 ne = np.shape(Qf_hefs)[1]
 
 Qf_v1_rhist = Qf_v1[:,:,:,ld-1]
 Qf_v2_rhist = Qf_v2[:,:,:,ld-1]
-rnk_hist_hefs = verify.onesamp_rnk_hist(Qf_hefs[sset_idx,:,ld-1], Q_hefs[sset_idx,ld-1], pcnt, forc_sort=fsort)
-rnk_hist_v1 = verify.multisamp_rnk_hist(Qf_v1_rhist[:,sset_idx,:], Q_hefs[sset_idx,ld-1],pcnt,forc_sort=fsort)
+rnk_hist_hefs = verify.onesamp_rnk_hist(Qf_hefs[sset_idx,:,ld-1], Q_hefs[sset_idx,ld-1], pcnt_rnk, forc_sort=fsort)
+rnk_hist_v1 = verify.multisamp_rnk_hist(Qf_v1_rhist[:,sset_idx,:], Q_hefs[sset_idx,ld-1],pcnt_rnk,forc_sort=fsort)
 rnk_hist_v1_agg = rnk_hist_v1[0].sum(axis=0) / np.sum(rnk_hist_v1[0])
-rnk_hist_v2 = verify.multisamp_rnk_hist(Qf_v2_rhist[:,sset_idx,:], Q_hefs[sset_idx,ld-1],pcnt,forc_sort=fsort)
+rnk_hist_v2 = verify.multisamp_rnk_hist(Qf_v2_rhist[:,sset_idx,:], Q_hefs[sset_idx,ld-1],pcnt_rnk,forc_sort=fsort)
 rnk_hist_v2_agg = rnk_hist_v2[0].sum(axis=0) / np.sum(rnk_hist_v2[0])
 
 
 Qf_v1_rhist_l2 = Qf_v1[:,:,:,ld2-1]
 Qf_v2_rhist_l2 = Qf_v2[:,:,:,ld2-1]
-rnk_hist_hefs_l2 = verify.onesamp_rnk_hist(Qf_hefs[sset_idx,:,ld2-1], Q_hefs[sset_idx,ld2-1], pcnt, forc_sort=fsort)
-rnk_hist_v1_l2 = verify.multisamp_rnk_hist(Qf_v1_rhist_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1],pcnt,forc_sort=fsort)
+rnk_hist_hefs_l2 = verify.onesamp_rnk_hist(Qf_hefs[sset_idx,:,ld2-1], Q_hefs[sset_idx,ld2-1], pcnt_rnk, forc_sort=fsort)
+rnk_hist_v1_l2 = verify.multisamp_rnk_hist(Qf_v1_rhist_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1],pcnt_rnk,forc_sort=fsort)
 rnk_hist_v1_agg_l2 = rnk_hist_v1_l2[0].sum(axis=0) / np.sum(rnk_hist_v1_l2[0])
-rnk_hist_v2_l2 = verify.multisamp_rnk_hist(Qf_v2_rhist_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1],pcnt,forc_sort=fsort)
+rnk_hist_v2_l2 = verify.multisamp_rnk_hist(Qf_v2_rhist_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1],pcnt_rnk,forc_sort=fsort)
 rnk_hist_v2_agg_l2 = rnk_hist_v2_l2[0].sum(axis=0) / np.sum(rnk_hist_v2_l2[0])
 
 
@@ -139,7 +155,7 @@ ax1.axline((0,0),slope=1/(ne+1),color='gray',linestyle='--')
 ax1.plot(x,crnk_hist_hefs,color=chefs,linewidth=2)
 ax1.set_xlim([0,ne+1])
 ax1.set_ylim([0,1])
-ax1.text(2,0.7,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax1.text(2,0.7,str(pcnt_rnk[0])+'-'+str(pcnt_rnk[1])+' percentile')
 ax1.text(2,0.6,'Lead ' + str(ld))
 ax1.text(38,0.1,'a)',fontsize='xx-large',fontweight='bold')
 ax1.xaxis.set_ticklabels([])
@@ -162,7 +178,7 @@ ax2.axline((0,0),slope=1/(ne+1),color='gray',linestyle='--')
 ax2.plot(x,crnk_hist_hefs,color=chefs,linewidth=2)
 ax2.set_xlim([0,ne+1])
 ax2.set_ylim([0,1])
-ax2.text(2,0.7,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax2.text(2,0.7,str(pcnt_rnk[0])+'-'+str(pcnt_rnk[1])+' percentile')
 ax2.text(2,0.6,'Lead ' + str(ld))
 ax2.text(38,0.1,'b)',fontsize='xx-large',fontweight='bold')
 
@@ -181,7 +197,7 @@ ax3.axline((0,0),slope=1/(ne+1),color='gray',linestyle='--')
 ax3.plot(x,crnk_hist_hefs_l2,color=chefs,linewidth=2)
 ax3.set_xlim([0,ne+1])
 ax3.set_ylim([0,1])
-ax3.text(2,0.7,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax3.text(2,0.7,str(pcnt_rnk[0])+'-'+str(pcnt_rnk[1])+' percentile')
 ax3.text(2,0.6,'Lead ' + str(ld2))
 ax3.text(38,0.1,'c)',fontsize='xx-large',fontweight='bold')
 
@@ -202,7 +218,7 @@ ax4.axline((0,0),slope=1/(ne+1),color='gray',linestyle='--')
 ax4.plot(x,crnk_hist_hefs_l2,color=chefs,linewidth=2)
 ax4.set_xlim([0,ne+1])
 ax4.set_ylim([0,1])
-ax4.text(2,0.7,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax4.text(2,0.7,str(pcnt_rnk[0])+'-'+str(pcnt_rnk[1])+' percentile')
 ax4.text(2,0.6,'Lead ' + str(ld2))
 ax4.text(38,0.1,'d)',fontsize='xx-large',fontweight='bold')
 
@@ -212,21 +228,20 @@ ax4.text(38,0.1,'d)',fontsize='xx-large',fontweight='bold')
 
 
 #3. plot binned spread error diagrams for various leads and percentiles
-pcnt = (0,1)
-
 Qf_v1_bse = Qf_v1[:,:,:,ld-1]
 Qf_v2_bse = Qf_v2[:,:,:,ld-1]
-bse_hefs = verify.onesamp_bse(Qf_hefs[sset_idx,:,ld-1], Q_hefs[sset_idx,ld-1], bins=20, pcntile=pcnt)
-bse_v1 = verify.multisamp_bse(Qf_v1_bse[:,sset_idx,:], Q_hefs[sset_idx,ld-1], bins=20, pcntile=pcnt)
-bse_v2 = verify.multisamp_bse(Qf_v2_bse[:,sset_idx,:], Q_hefs[sset_idx,ld-1], bins=20, pcntile=pcnt)
+bse_hefs = verify.onesamp_bse(Qf_hefs[sset_idx,:,ld-1], Q_hefs[sset_idx,ld-1], bins=20, pcntile=pcnt_bse)
+bse_v1 = verify.multisamp_bse(Qf_v1_bse[:,sset_idx,:], Q_hefs[sset_idx,ld-1], bins=20, pcntile=pcnt_bse)
+bse_v2 = verify.multisamp_bse(Qf_v2_bse[:,sset_idx,:], Q_hefs[sset_idx,ld-1], bins=20, pcntile=pcnt_bse)
 
 Qf_v1_bse_l2 = Qf_v1[:,:,:,ld2-1]
 Qf_v2_bse_l2 = Qf_v2[:,:,:,ld2-1]
-bse_hefs_l2 = verify.onesamp_bse(Qf_hefs[sset_idx,:,ld2-1], Q_hefs[sset_idx,ld2-1], bins=20, pcntile=pcnt)
-bse_v1_l2 = verify.multisamp_bse(Qf_v1_bse_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1], bins=20, pcntile=pcnt)
-bse_v2_l2 = verify.multisamp_bse(Qf_v2_bse_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1], bins=20, pcntile=pcnt)
+bse_hefs_l2 = verify.onesamp_bse(Qf_hefs[sset_idx,:,ld2-1], Q_hefs[sset_idx,ld2-1], bins=20, pcntile=pcnt_bse)
+bse_v1_l2 = verify.multisamp_bse(Qf_v1_bse_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1], bins=20, pcntile=pcnt_bse)
+bse_v2_l2 = verify.multisamp_bse(Qf_v2_bse_l2[:,sset_idx,:], Q_hefs[sset_idx,ld2-1], bins=20, pcntile=pcnt_bse)
 
-axlim = max(np.max(bse_hefs),np.max(bse_v1),np.max(bse_v2),np.max(bse_hefs_l2),np.max(bse_v1_l2))#,np.max(bse_v2_l2))
+#axlim = max(np.max(bse_hefs),np.max(bse_v1),np.max(bse_v2),np.max(bse_hefs_l2),np.max(bse_v1_l2))#,np.max(bse_v2_l2))
+axlim = max((np.max(bse_hefs),np.max(bse_hefs_l2)))*1.5
 
 #plt.subplot(4,4,3)
 ax1 = fig.add_subplot(gs2[0])
@@ -241,7 +256,7 @@ ax1.axline((0,0),slope=1,color='gray',linestyle='--')
 ax1.plot(bse_hefs[0,:],bse_hefs[1,:],color=chefs,linewidth=2)
 ax1.set_xlim([0,axlim*1.05])
 ax1.set_ylim([0,axlim*1.05])
-ax1.text(0.05*axlim,0.75*axlim,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax1.text(0.05*axlim,0.75*axlim,str(pcnt_bse[0])+'-'+str(pcnt_bse[1])+' percentile')
 ax1.text(0.05*axlim,0.65*axlim,'Lead ' + str(ld))
 ax1.text(0.9*axlim,0.1*axlim,'e)',fontsize='xx-large',fontweight='bold')
 ax1.yaxis.get_major_locator().set_params(integer=True)
@@ -263,7 +278,7 @@ ax2.axline((0,0),slope=1,color='gray',linestyle='--')
 ax2.plot(bse_hefs[0,:],bse_hefs[1,:],color=chefs,linewidth=2)
 ax2.set_xlim([0,axlim*1.05])
 ax2.set_ylim([0,axlim*1.05])
-ax2.text(0.05*axlim,0.75*axlim,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax2.text(0.05*axlim,0.75*axlim,str(pcnt_bse[0])+'-'+str(pcnt_bse[1])+' percentile')
 ax2.text(0.05*axlim,0.65*axlim,'Lead ' + str(ld))
 ax2.text(0.9*axlim,0.1*axlim,'f)',fontsize='xx-large',fontweight='bold')
 ax2.yaxis.get_major_locator().set_params(integer=True)
@@ -281,7 +296,7 @@ ax3.axline((0,0),slope=1,color='gray',linestyle='--')
 ax3.plot(bse_hefs_l2[0,:],bse_hefs_l2[1,:],color=chefs,linewidth=2)
 ax3.set_xlim([0,axlim*1.05])
 ax3.set_ylim([0,axlim*1.05])
-ax3.text(0.05*axlim,0.75*axlim,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax3.text(0.05*axlim,0.75*axlim,str(pcnt_bse[0])+'-'+str(pcnt_bse[1])+' percentile')
 ax3.text(0.05*axlim,0.65*axlim,'Lead ' + str(ld2))
 ax3.text(0.9*axlim,0.1*axlim,'f)',fontsize='xx-large',fontweight='bold')
 ax3.yaxis.get_major_locator().set_params(integer=True)
@@ -301,7 +316,7 @@ ax4.axline((0,0),slope=1,color='gray',linestyle='--')
 ax4.plot(bse_hefs_l2[0,:],bse_hefs_l2[1,:],color=chefs,linewidth=2)
 ax4.set_xlim([0,axlim*1.05])
 ax4.set_ylim([0,axlim*1.05])
-ax4.text(0.05*axlim,0.75*axlim,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax4.text(0.05*axlim,0.75*axlim,str(pcnt_bse[0])+'-'+str(pcnt_bse[1])+' percentile')
 ax4.text(0.05*axlim,0.65*axlim,'Lead ' + str(ld2))
 ax4.text(0.9*axlim,0.1*axlim,'g)',fontsize='xx-large',fontweight='bold')
 ax4.yaxis.get_major_locator().set_params(integer=True)
@@ -309,20 +324,9 @@ ax4.yaxis.get_major_locator().set_params(integer=True)
 
 #----------------------------------------------------------------------------
 #4. eCRPS diagrams
-ref_st = '1979-10-01'
-ref_end = '2021-09-30'
-lds = (1,2,3,5)
-pcnt = (0,0.9)
-
-Q_ref_inp,Q_MSG_ref,dowy_ref = model.extract_obs(ref_st, ref_end)
-Qf_ref_ens_inp = verify.create_obs_ref_ens(Q_ref_inp, dowy_ref, sd, ed)
-
-Q_ref = verify.tgt_cumul(tgt = Q_ref_inp, nl = np.shape(Qf_hefs)[2])
-Qf_ref_ens = verify.ref_forecast_rearrange_cumul(Qf_ref_ens_inp,nl=np.shape(Qf_hefs)[2])
-
-ecrps_ss_v1_inp = np.load('data/ecrps-ss-cumul_syn-forecast%s_nsamp=%s.npz' %(syn_vers1+syn_vers1_param,nsamps))['arr']
-ecrps_ss_v2_inp = np.load('data/ecrps-ss-cumul_syn-forecast%s_nsamp=%s.npz' %(syn_vers2+syn_vers2_param,nsamps))['arr']
-ecrps_ss_hefs_inp = np.load('data/ecrps-ss-cumul_hefs.npz')['arr']
+ecrps_ss_v1_inp = np.load('data/%s-%s_ecrps-ss-cumul_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers1+vers_out1,nsamps))['arr']
+ecrps_ss_v2_inp = np.load('data/%s-%s_ecrps-ss-cumul_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers2+vers_out2,nsamps))['arr']
+ecrps_ss_hefs_inp = np.load('data/%s-%s_ecrps-ss-cumul_hefs.npz' %(loc,site))['arr']
 
 ecrps_ss_hefs = np.empty((len(lds)))
 ecrps_ss_v1 = np.empty((len(lds),nsamps))
@@ -355,11 +359,9 @@ ax1.set_xlim([0,5])
 ax1.set_ylim([0.2,1])
 #ax1.set_title('Ensemble CRPS Skill Score')
 ax1.set_ylabel('eCRPS skill score')
-ax1.text(3.75,0.8,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax1.text(3.75,0.8,str(low_pcnt_ecrps[0])+'-'+str(low_pcnt_ecrps[1])+' percentile')
 ax1.text(0.25,0.95,'h)',fontsize='xx-large',fontweight='bold')
 
-
-pcnt = (0.9,1)
 for i in range(len(lds)):
     ecrps_ss_hefs[i] = ecrps_ss_hefs_inp[0,lds[i]-1]
     ecrps_ss_v1[i,:] = ecrps_ss_v1_inp[0,lds[i]-1,:]
@@ -388,11 +390,12 @@ ax2.set_xlim([0,5])
 ax2.set_ylim([0.2,1])
 #ax2.set_title('Ensemble CRPS Skill Score')
 #plt.ylabel('eCRPS skill score')
-ax2.text(3.75,0.8,str(pcnt[0])+'-'+str(pcnt[1])+' percentile')
+ax2.text(3.75,0.8,str(upr_pcnt_ecrps[0])+'-'+str(upr_pcnt_ecrps[1])+' percentile')
 ax2.text(0.25,0.95,'i)',fontsize='xx-large',fontweight='bold')
 ax2.yaxis.set_ticklabels([])
 
-fig.savefig('./plot/ensemble/10panel_cumul-rnk-hist_bse_ecrps_val-lds%s,%s_synvers%s,%s_cumul.png' %(ld,ld2,syn_vers1+syn_vers1_param,syn_vers2+syn_vers2_param),dpi=300,bbox_inches='tight')
+fig.savefig('./figs/comparison/%s/%s/%s-%s_10panel_cumul-rnk-hist_bse_ecrps_val-lds%s,%s_synvers%s,%s_cumul.png' %(loc,site,loc,site,ld,ld2,syn_vers1+vers_out1,syn_vers2+vers_out2),dpi=300,bbox_inches='tight')
 
+#sys.modules[__name__].__dict__.clear()
 
 #---------------------------------------------------------------------end------------------------------------------------------------------

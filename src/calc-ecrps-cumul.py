@@ -23,11 +23,12 @@ kcfs_to_tafd = 2.29568411*10**-5 * 86400
 K = 317 # TAF
 Rmax = 12.5 * kcfs_to_tafd # estimate - from MBK
 
-loc='ADO'
-site='ADOC1'
-val_samps=6
-upr_pcnt = (0.9,1)
-lwr_pcnt = (0,0.9)
+loc='YRS'
+site='NBBC1'
+vers='oos'
+
+upr_pcnt = (0.99,1)
+lwr_pcnt = (0,0.99)
 
 sd_syn = '1985-10-15' 
 ed_syn = '2019-08-15'
@@ -38,55 +39,48 @@ sd = '1990-10-01'
 ed = '2019-08-15'
 sl_idx = idx_syn.slice_indexer(sd,ed)
 save_figs = True  # T to show plots, F to save .png files to ./plot repo
-syn_vers1 = 'v1'    # synthetic forecast version; 'v1' or 'v2'
-syn_vers1_param = 'a' 
-#syn_path1 = 'z:/Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers1) # path to R synthetic forecast repo for 'r-gen' setting below
-syn_path1 = '../Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers1) # path to R synthetic forecast repo for 'r-gen' setting below
-syn_vers2 = 'v2'    # synthetic forecast version; 'v1' or 'v2'
-syn_vers2_param = 'l'
-#syn_path2 = 'z:/Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers2) # path to R synthetic forecast repo for 'r-gen' setting below
-syn_path2 = '../Synthetic-Forecast-%s-FIRO-DISES/' %(syn_vers2) # path to R synthetic forecast repo for 'r-gen' setting below
-gen_path = 'r-gen'
-nsamps = 10
 
-vals = np.loadtxt("%s/data/%s/opt_val_years_samp=%s.csv" %(syn_path1,loc,val_samps),skiprows=1) 
-val_yrs = np.array(vals)
+nsamps = 100
+
+#vals = np.loadtxt("%s/data/%s/opt_val_years_samp=%s.csv" %(syn_path1,loc,val_samps),skiprows=1) 
+#val_yrs = np.array(vals)
 #val_yrs = (1991,1994,1996,1997,2018,2020)
 
-Q_hefs_inp,Qf_hefs_inp,dowy_hefs_trn,tocs,df_idx_hefs = syn_util.extract(sd,ed,forecast_type='hefs',syn_sample='',Rsyn_path=syn_path1,forecast_param=syn_vers1_param,loc=loc,site=site)
+Q_hefs_inp,Qf_hefs_inp,dowy_hefs_trn,tocs,df_idx_hefs = syn_util.extract(sd,ed,forecast_type='hefs',syn_sample='',Rsyn_path='../Synthetic-Forecast-v1-FIRO-DISES',syn_vers='',forecast_param='',loc=loc,site=site,opt_pcnt=0.99,gen_setup='')
 Qf_hefs_trn = verify.onesamp_forecast_rearrange_cumul(Qf_hefs_inp)
 Q_hefs_trn = verify.tgt_cumul(Q_hefs_inp, nl=np.shape(Qf_hefs_inp)[2])
 
 wy_vec = df_idx_hefs.year.values
 wy_vec[np.isin(df_idx_hefs.month,[10,11,12])] = wy_vec[np.isin(df_idx_hefs.month,[10,11,12])]+1
 
-val_idx = np.arange(len(df_idx_hefs))[np.isin(wy_vec,val_yrs)]
-df_idx_val = df_idx_hefs[val_idx]
+#val_idx = np.arange(len(df_idx_hefs))[np.isin(wy_vec,val_yrs)]
+#df_idx_val = df_idx_hefs[val_idx]
 
-Qf_v1_inp = np.load('data/%s-%s_Qf_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers1+syn_vers1_param,nsamps))['arr']
+Qf_v1_inp = np.load('data/%s-%s_Qf_syn-forecastv1%s_nsamp=%s.npz' %(loc,site,vers,nsamps))['arr']
 Qf_v1_trn = verify.multisamp_forecast_rearrange_cumul(Qf_v1_inp[:,sl_idx,:,:])
 
-Qf_v2_inp = np.load('data/%s-%s_Qf_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers2+syn_vers2_param,nsamps))['arr']
+Qf_v2_inp = np.load('data/%s-%s_Qf_syn-forecastv2%s_nsamp=%s.npz' %(loc,site,vers,nsamps))['arr']
 Qf_v2_trn = verify.multisamp_forecast_rearrange_cumul(Qf_v2_inp[:,sl_idx,:,:])
 
 #4. eCRPS diagrams
-Qf_hefs = Qf_hefs_trn[val_idx,:,:]
-Q_hefs = Q_hefs_trn[val_idx]
-Qf_v1 = Qf_v1_trn[:,val_idx,:,:]
-Qf_v2 = Qf_v2_trn[:,val_idx,:,:]
-dowy_hefs = dowy_hefs_trn[val_idx]
+Qf_hefs = Qf_hefs_trn[:,:,:]
+Q_hefs = Q_hefs_trn
+Qf_v1 = Qf_v1_trn[:,:,:,:]
+Qf_v2 = Qf_v2_trn[:,:,:,:]
+dowy_hefs = dowy_hefs_trn
 
 ref_st = '1985-10-15'
 ref_end = '2019-08-15'
 lds = np.arange(np.shape(Qf_hefs)[2])
-sset_idx = np.where((dowy_hefs>60) & (dowy_hefs<170))[0]
+#sset_idx = np.where((dowy_hefs>60) & (dowy_hefs<170))[0]
+sset_idx = np.arange(len(Q_hefs_trn))
 
-Q_ref_inp,dowy_ref = syn_util.extract_obs(ref_st, ref_end, Rsyn_path=syn_path1,loc=loc,site=site)
+Q_ref_inp,dowy_ref,df_idx_ref = syn_util.extract_obs(ref_st, ref_end, Rsyn_path='../Synthetic-Forecast-v1-FIRO-DISES',loc=loc,site=site)
 Qf_ref_ens_inp = verify.create_obs_ref_ens(Q_ref_inp, dowy_ref, sd, ed)
 
 Q_ref = verify.tgt_cumul(tgt = Q_ref_inp, nl = np.shape(Qf_hefs)[2])
 Qf_ref_ens_temp = verify.ref_forecast_rearrange_cumul(Qf_ref_ens_inp,nl=np.shape(Qf_hefs)[2])
-Qf_ref_ens = Qf_ref_ens_temp[val_idx,:]
+Qf_ref_ens = Qf_ref_ens_temp[:,:]
 
 ecrps_ss_hefs = np.empty((2,len(lds)))
 ecrps_ss_v1 = np.empty((2,len(lds),nsamps))
@@ -118,10 +112,10 @@ for i in range(len(lds)):
     now=datetime.now()
     print(i,now.strftime("%H:%M:%S"))
 
-np.savez_compressed('data/%s-%s_ecrps-ss-cumul_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers1+syn_vers1_param,nsamps), arr=ecrps_ss_v1)
-np.savez_compressed('data/%s-%s_ecrps-ss-cumul_syn-forecast%s_nsamp=%s.npz' %(loc,site,syn_vers2+syn_vers2_param,nsamps), arr=ecrps_ss_v2)
+np.savez_compressed('data/%s-%s_ecrps-ss-cumul_syn-forecastv1%s_nsamp=%s.npz' %(loc,site,vers,nsamps), arr=ecrps_ss_v1)
+np.savez_compressed('data/%s-%s_ecrps-ss-cumul_syn-forecastv2%s_nsamp=%s.npz' %(loc,site,vers,nsamps), arr=ecrps_ss_v2)
 
-np.savez_compressed('data/%s-%s_ecrps-ss-cumul_hefs.npz', arr=ecrps_ss_hefs)
+np.savez_compressed('data/%s-%s_ecrps-ss-cumul_hefs.npz' %(loc,site), arr=ecrps_ss_hefs)
 
 now=datetime.now()
 print('ecrps-c end',now.strftime("%H:%M:%S"))

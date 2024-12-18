@@ -7,6 +7,7 @@ Created on Tue Jan 16 21:32:35 2024
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
+import calendar
 from util import water_day
 from scipy.stats import gamma
 from scipy.stats import norm
@@ -175,7 +176,7 @@ def ecrps_ss(ens_ecrps,ref_ecrps):
 
 def create_obs_ref_ens(obs_ref,dowy_ref,sd,ed):
     idx = pd.date_range(start = sd, end = ed )
-    dowy = np.array([water_day(d) for d in idx.dayofyear])
+    dowy = np.array([water_day(d,calendar.isleap(d.year)) for d in idx])
     unique, counts = np.unique(dowy_ref, return_counts=True)
     ens_size = np.min(counts)
     obs_ens = np.empty((len(dowy),ens_size))
@@ -394,8 +395,8 @@ def percentile_rel_sset(ensemble,tgt,lwr_pcnt,upr_pcnt):
         sset_out[:,i] = percentile_rel(ensemble[:,i],tgt[i],lwr_pcnt,upr_pcnt)
         
     cp = np.sum(sset_out[2,:]) / n
-    riw = np.sum(sset_out[1,:] - sset_out[0,:]) / np.sum(sset_out[2,:]) #zha et al. (2020) 'AR-GARCh with exogenous..'
-    return sset_out,cp,riw
+    #riw = np.sum(sset_out[1,:] - sset_out[0,:]) / np.sum(sset_out[2,:]) #zha et al. (2020) 'AR-GARCh with exogenous..'
+    return sset_out,cp
 
 #Mcinerney et al. 2017
 def precision_sset(ensemble,tgt):
@@ -599,13 +600,52 @@ def rel_plot_calcs(ensemble,tgt,bins,threshold):
             p_obs_y[i] = np.sum(events[idx]) / len(idx[0])
             p_y[i] = np.mean(prob_vec[idx])
 
-    nzero_idx = np.where(p_y!=0)
-    p_y = p_y[nzero_idx]
-    p_obs_y = p_obs_y[nzero_idx]
+    #nzero_idx = np.where(p_y!=0)
+    #p_y = p_y[nzero_idx]
+    #p_obs_y = p_obs_y[nzero_idx]
     uc_prob = np.sum(events) / len(tgt)
     ens_uc_prob = ens_uncond_prob(inp_ens, threshold)
     
     return p_obs_y,p_y,uc_prob,ens_uc_prob,prob_vec
+
+def brier_scores(ensemble,tgt,bins,threshold):
+    events = np.empty_like(tgt)
+    events[:] = tgt[:]
+    events[events<=threshold] = 0
+    events[events>threshold] = 1
+    inp_ens = np.empty_like(ensemble)
+    inp_ens[:,:] = ensemble[:,:]
+
+    prob_vec = prob_vector_calc(inp_ens, threshold)
+    prob_vec_cut = pd.cut(prob_vec,bins = np.linspace(0,1,bins+1),include_lowest=True,labels=False)
+
+    p_obs_y = np.zeros(bins)
+    p_y = np.zeros(bins)
+    rel_term = []
+    res_term = []
+    uc_prob = np.sum(events) / len(tgt)
+
+    for i in range(bins):
+        idx = np.where(prob_vec_cut == i)
+        if len(idx[0]) == 0:
+            p_obs_y[i] = 0
+            p_y[i] = 0
+        else:
+            p_obs_y[i] = np.sum(events[idx]) / len(idx[0])
+            p_y[i] = np.mean(prob_vec[idx])
+        rel_term.append(len(idx) * (p_y[i]-p_obs_y[i])**2)
+        res_term.append(len(idx) * (p_obs_y[i]-uc_prob)**2)
+    
+    bs_rel = (1/len(tgt)) * np.sum(rel_term)
+    bs_res = (1/len(tgt)) * np.sum(res_term)
+    bs_unc = uc_prob*(1-uc_prob)
+    #nzero_idx = np.where(p_y!=0)
+    #p_y = p_y[nzero_idx]
+    #p_obs_y = p_obs_y[nzero_idx]
+    
+    #ens_uc_prob = ens_uncond_prob(inp_ens, threshold)
+    
+    return bs_rel,bs_res,bs_unc
 
 def rel_plot_calcs_cat(ensemble,tgt,bins,cat):
     events = np.empty_like(tgt)
