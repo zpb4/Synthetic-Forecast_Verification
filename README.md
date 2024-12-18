@@ -17,16 +17,17 @@ As noted above, it is required to run the associated synthetic forecast algorith
 -  ./src/data_writeout_ncdf.R - converts .rds array to netCDF file for extraction via Python routines
 
 ### Data extraction and processing
+Note: Most scripts below call functions from the './src/ensemble_verification_functions.py' script
 These Python scripts must be run first with the appropriate parameterization inputs to extract and process data for visualization in the Python plotting routines:
 - ./src/extract_syn-forecasts.py - extracts synthetic forecast for a specific site from the multisite array in preparation for visualization
 - ./src/calc-ecrps.py - calculates the eCRPS metric which is somewhat time consuming. This routine has internal parallelization and can be sped up immensely on an HPC
 - ./src/calc-ecrps-cumul.py - as in previous, but for cumulative ensemble statistics
 ### Plotting
 Note: these routines are currently being built out; routines in _italics_ are in the repo but not fully up to date
-- ./src/plot_ensembles.R - coarser set of verification visualizations that can be run directly after generation via the R scripts and the 'slice_plot-ens.R' subsetting operation described above
+- ./src/plot_ensembles_val.R - coarser set of verification visualizations that can be run directly after generation via the R scripts and the 'slice_plot-ens.R' subsetting operation described above
 - ./src/forc-ensemble-verification.py - main set of manuscript quality figures that compares the two forecast methods across 3 common metrics; metrics are shown only for VAL years from model fitting
-- _./src/forc-ensemble-verification_cumul.py - as above, but for cumulative forecast statistics; currently needs updated to multisite setup_
-- _./src/ensemble-plot.py - ensemble plotting routine for manuscript quality figures; needs updated to multisite setup_
+- ./src/forc-ensemble-verification_cumul.py - as above, but for cumulative forecast statistics
+- ./src/ensemble-plot_SI.py - ensemble plotting routine for manuscript quality figures used in SI
 
 ### Contact
 Zach Brodeur, zpb4@cornell.edu
