@@ -1,4 +1,14 @@
 #Forecast Verification Functions
+library(lubridate)
+
+wy_fun<-function(date_vec){
+  wy_vec <- date_vec$year
+  wy_vec[date_vec$mo%in%c(9,10,11)] <- wy_vec[date_vec$mo%in%c(9,10,11)]+1
+  date_vec_wy <- date_vec
+  date_vec_wy$year <- wy_vec
+  return(date_vec_wy)
+}
+
 fwd_forecast_rearrange<-function(forecast){
   forecast_out<-array(0,dim(forecast))
   for(i in 1:dim(forecast)[3]){
@@ -101,6 +111,71 @@ eCRPS<-function(ens,obs){
 eDSS<-function(var_ens,mn_ens,obs){
   ss<-log(var_ens) + (((obs - mn_ens)^2)/var_ens^2)
   return(ss)
+}
+
+declust_evts_extract <- function(Q,n_evts,sep,max_lds){
+  rnk_data = rank(Q,ties.method = 'first')
+  srt_rnks_idx = order(rnk_data,decreasing = T)[1:(n_evts*10)]
+
+  vec = c()
+  for(i in 1:length(srt_rnks_idx)){
+    evt <- which(rnk_data==max(rnk_data[max(srt_rnks_idx[i]-sep,1):min(srt_rnks_idx[i]+sep,length(rnk_data))]))
+    vec[i] <- evt
+    if(i>1 & evt%in%(vec[1:(i-1)]+matrix(rep(-sep:sep,length(vec[1:(i-1)])),nrow=length(vec[1:(i-1)]),byrow=T))){vec[i]<-NA}}
+  declust_evts=unique(vec)
+  sel_idx=order(Q[declust_evts],decreasing = T)
+  evt_idx = declust_evts[sel_idx][0:n_evts]
+  
+  rmv_idx <- which(evt_idx<=leads)
+  if(length(rmv_idx)>0){
+    pool <- declust_evts[sel_idx][(n_evts+1):(length(declust_evts[sel_idx]))]
+    pool <- pool[pool>leads]
+    evt_idx <- evt_idx[-c(rmv_idx)]
+    evt_idx <- c(evt_idx,pool[1:length(rmv_idx)])}
+  
+  return(evt_idx)}
+
+wy_fun<-function(date_vec){
+  wy_vec <- date_vec$year
+  wy_vec[date_vec$mo%in%c(9,10,11)] <- wy_vec[date_vec$mo%in%c(9,10,11)]+1
+  date_vec_wy <- date_vec
+  date_vec_wy$year <- wy_vec
+  return(date_vec_wy)
+}
+
+
+climo_forecast <- function(dtg_vec,hefs_array,obs_forward_array){
+  yrs <- unique(dtg_vec$year)
+  if(length(which(dtg_vec$year==yrs[1]))<365){
+    yrs <- yrs[-c(1)]
+  }
+  if(length(which(dtg_vec$year==yrs[length(yrs)]))<365){
+    yrs <- yrs[-c(length(yrs))]
+  }
+  yrs_idx <- unique(dtg_vec$year)
+  climo_farray <- array(NA,dim(hefs_array))
+  doy <- yday(dtg_vec)
+
+  for(i in 1:length(yrs_idx)){
+    set.seed(1)
+    n_ens <- dim(hefs_array)[1]
+    if(n_ens<=(length(yrs)-1)){
+      climo_yrs <- sample(yrs[!yrs%in%yrs_idx[i]],n_ens,replace = F)}
+    if(n_ens>(length(yrs)-1)){
+      climo_yrs <- sample(yrs[!yrs%in%yrs_idx[i]],n_ens,replace = T)}
+    yr_len <- length(which(dtg_vec$year==yrs_idx[i]))
+    climo_inp <- climo_farray[,1:yr_len,]
+    for(j in 1:yr_len){
+      jday <- min(j,365) #for leap years, just repeat the end of year climatology forecast
+      dy <- doy[dtg_vec$year%in%yrs_idx[i]][jday]
+      doy_idx <- rep(NA,length(dtg_vec))
+      doy_idx[dtg_vec$year%in%climo_yrs] <- doy[dtg_vec$year%in%climo_yrs]
+      d_idx <- which(doy_idx==dy)
+      climo_inp[,j,] <- obs_forward_array[d_idx,]
+    }
+    climo_farray[,dtg_vec$year%in%yrs_idx[i],] <- climo_inp
+  }
+  return(climo_farray)
 }
 
 ##################################END###################################################
