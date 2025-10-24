@@ -126,14 +126,15 @@ for(i in 1:samps){
   obs_events <- obs_eval[ixx_eval%in%obs_dates]
   obs_date_loc <- c(1:length(obs_key))[ixx_eval%in%obs_dates] 
   rmv_idx <- which(obs_date_loc<=leads)
+  obs_dates <- as.character(obs_dates)
   #remove any dates that are within the lead window of the end of 1986 period to ensure no cutoffs
   idx_close_86 <- seq(as.Date(tail(ixx_hefs86,1)+(60*60*24)),as.Date(tail(ixx_hefs86,1)+(60*60*24*leads)),by='day')
   if(any(obs_dates%in%idx_close_86==T)){
-    rmv_idx <- c(rmv_idx,1:length(obs_dates)[obs_dates%in%idx_close_86])}
+    rmv_idx <- c(rmv_idx,(1:length(obs_dates))[obs_dates%in%idx_close_86])}
   #remove any dates that are within the lead window of the end of the HEFS period to ensure no cutoffs
   idx_close_hefsend <- seq(as.Date(tail(ixx_hefs,1)+(60*60*24)),as.Date(tail(ixx_hefs,1)+(60*60*24*leads)),by='day')
   if(any(obs_dates%in%idx_close_hefsend==T)){
-    rmv_idx <- c(rmv_idx,1:length(obs_dates)[obs_dates%in%idx_close_hefsend])}
+    rmv_idx <- c(rmv_idx,(1:length(obs_dates))[obs_dates%in%idx_close_hefsend])}
   if(length(rmv_idx)>0){
     pool <- order(obs_key,decreasing=TRUE)[(n_evts+1):(n_evts+100)]
     pool <- pool[pool>leads]
@@ -199,7 +200,7 @@ saveRDS(shefs_pbias_vec,paste('./data/',loc,'-',disp_site,'_pcntile=',disp_pcnt,
 neval_evts = 10
 sep = 15
 
-eval_evts <- declust_evts_extract(obs_key,neval_evts,sep,leads)
+eval_evts <- declust_evts_extract_xhc(obs_key,neval_evts,sep,leads,ixx_hefs86,ixx_hefs,ixx_eval)
 obs_evts <- obs_eval[eval_evts]
 
 shefs_ecrps_pk <- array(NA,c(dim(shefs_ecrps_vec)[1],neval_evts,leads))

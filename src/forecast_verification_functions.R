@@ -135,6 +135,37 @@ declust_evts_extract <- function(Q,n_evts,sep,max_lds){
   
   return(evt_idx)}
 
+declust_evts_extract_xhc <- function(Q,n_evts,sep,max_lds,idx_86,idx_hefs,idx_all){
+  ixx_all = as.character(idx_all)
+  rnk_data = rank(Q,ties.method = 'first')
+  srt_rnks_idx = order(rnk_data,decreasing = T)[1:(n_evts*10)]
+  
+  vec = c()
+  for(i in 1:length(srt_rnks_idx)){
+    evt <- which(rnk_data==max(rnk_data[max(srt_rnks_idx[i]-sep,1):min(srt_rnks_idx[i]+sep,length(rnk_data))]))
+    vec[i] <- evt
+    if(i>1 & evt%in%(vec[1:(i-1)]+matrix(rep(-sep:sep,length(vec[1:(i-1)])),nrow=length(vec[1:(i-1)]),byrow=T))){vec[i]<-NA}}
+  declust_evts=unique(vec)
+  sel_idx=order(Q[declust_evts],decreasing = T)
+  evt_idx = declust_evts[sel_idx][0:n_evts]
+  obs_dates = ixx_all[evt_idx]
+  
+  rmv_idx <- which(evt_idx<=leads)
+  idx_close_86 <- seq(as.Date(tail(idx_86,1)+(60*60*24)),as.Date(tail(idx_86,1)+(60*60*24*max_lds)),by='day')
+  if(any(obs_dates%in%idx_close_86==T)){
+    rmv_idx <- c(rmv_idx,(1:length(obs_dates))[obs_dates%in%idx_close_86])}
+  #remove any dates that are within the lead window of the end of the HEFS period to ensure no cutoffs
+  idx_close_hefsend <- seq(as.Date(tail(idx_hefs,1)+(60*60*24)),as.Date(tail(idx_hefs,1)+(60*60*24*max_lds)),by='day')
+  if(any(obs_dates%in%idx_close_hefsend==T)){
+    rmv_idx <- c(rmv_idx,(1:length(obs_dates))[obs_dates%in%idx_close_hefsend])}
+  if(length(rmv_idx)>0){
+    pool <- declust_evts[sel_idx][(n_evts+1):(length(declust_evts[sel_idx]))]
+    pool <- pool[pool>leads]
+    evt_idx <- evt_idx[-c(rmv_idx)]
+    evt_idx <- c(evt_idx,pool[1:length(rmv_idx)])}
+  
+  return(evt_idx)}
+
 wy_fun<-function(date_vec){
   wy_vec <- date_vec$year
   wy_vec[date_vec$mo%in%c(9,10,11)] <- wy_vec[date_vec$mo%in%c(9,10,11)]+1
