@@ -4,7 +4,7 @@
 print(paste('calc start',Sys.time()))
 
 #set root directory
-#setwd('z:/Synthetic-Forecast_Verification/')
+setwd('z:/Synthetic-Forecast_Verification/')
 
 #Load packages
 library(lubridate)
