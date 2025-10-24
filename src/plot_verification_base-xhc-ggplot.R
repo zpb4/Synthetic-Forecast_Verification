@@ -54,6 +54,12 @@ if (!dir.exists(path_out)) {
   dir.create(path_out,recursive=T)
 }
 
+if(has_86==T){
+  load(paste(path,'out/',loc,'/data_prep_rdata86.RData',sep=''))
+  cur_site <- which(site_names==disp_site)
+  idx_site <- which(site_names==opt_site)
+  ixx_hefs86 <- ixx_hefs}
+
 load(paste(path,'out/',loc,'/data_prep_rdata.RData',sep=''))
 rm(hefs_forward,hefs_forward_cumul,hefs_forward_frac,hefs_forward_cumul_ens_avg,hefs_forward_cumul_ens_resid,obs_forward_all_leads_hind)
 gc()
@@ -426,7 +432,7 @@ ggsave(paste(path_out,loc,'-',disp_site,'_pbias-bplots_pcntile=',disp_pcnt,'_obj
 
 #########################################CRPS plots for specific events##############################################
 neval_evts = 10
-eval_evts <- declust_evts_extract(obs_key_xhc,neval_evts,sep=15,max_lds = 14)
+eval_evts <- declust_evts_extract_xhc(obs_key_xhc,neval_evts,sep=15,max_lds = 14,ixx_hefs86,ixx_hefs,ixx_eval_xhc)
 
 ecrps_plts = vector('list',neval_evts)
 
@@ -488,7 +494,7 @@ ggsave(paste(path_out,loc,'-',disp_site,'_ecrps-bplots_top',neval_evts,'_objpwr=
 
 #########################################CRPS-SS plots for specific events##############################################
 neval_evts = 10
-eval_evts <- declust_evts_extract(obs_key_xhc,neval_evts,sep=15,max_lds = 14)
+eval_evts <- declust_evts_extract_xhc(obs_key_xhc,neval_evts,sep=15,max_lds = 14,ixx_hefs86,ixx_hefs,ixx_eval_xhc)
 
 ecrps_plts = vector('list',neval_evts)
 

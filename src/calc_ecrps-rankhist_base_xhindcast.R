@@ -138,8 +138,11 @@ for(i in 1:samps){
   if(length(rmv_idx)>0){
     pool <- order(obs_key,decreasing=TRUE)[(n_evts+1):(n_evts+100)]
     pool <- pool[pool>leads]
+    obs_evt_pool <- obs_eval[pool]
     obs_date_loc <- obs_date_loc[-c(rmv_idx)]
-    obs_date_loc <- c(obs_date_loc,pool[1:length(rmv_idx)])}
+    obs_date_loc <- c(obs_date_loc,pool[1:length(rmv_idx)])
+    obs_events <- obs_events[-c(rmv_idx)]
+    obs_events <- c(obs_events,obs_evt_pool[1:length(rmv_idx)])}
     
   obs_events_mat[,i] <- obs_events
   obs_dloc_mat[,i] <- obs_date_loc
