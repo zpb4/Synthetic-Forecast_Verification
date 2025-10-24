@@ -1,39 +1,45 @@
+#Script to calculate verification statistics for the HINDCAST period
 
-#args = commandArgs(trailingOnly=TRUE)
-#print(paste('task #',args[1]))
-#idx = as.numeric(args[1])
-
-
+#NOTE: This script can be time-consuming to run and requires a lot of RAM; best to run on HPC if possible
 print(paste('calc start',Sys.time()))
 
+#set root directory
+#setwd('z:/Synthetic-Forecast_Verification/')
+
+#Load packages
 library(lubridate)
-#library(abind)
-#library(doParallel)
-#parallel::detectCores()
-#n.cores <- parallel::detectCores()
-#my.cluster<-parallel::makeCluster(n.cores,type = 'FORK',methods=F,useXDR=F)
-#my.cluster<-parallel::makeCluster(n.cores,type = 'PSOCK')
-#print(my.cluster)
-#doParallel::registerDoParallel(cl = my.cluster)
-#foreach::getDoParRegistered()
 
+#Primary modifiable input parameters
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////
-#Data setup
-syn_vers = 2
-loc = 'SOD'
-opt_site = 'SRWC1'
-disp_site = 'SRWC1'
-opt_pcnt = 0.99
-cal_val_setup = 'cal' # 'cal' '5fold' '5fold-test'
-obj_pwr = 0
-opt_strat = 'ecrps-dts'
-has_86 = F
+#location and site info
+loc = 'YRS'             #overall location
+opt_site = 'ORDC1'      #keysite for the synthetic forecasting run
+disp_site = 'ORDC1'     #what site you want to display
 
-#plot setup
-disp_pcnt <- 0.999
+#synthetic forecast setup specifics; should match generation setup you want to look at
+syn_vers = 2            #which synthetic version to use (probably 2)
+opt_pcnt = 0.99         #what percentile of the data was the synthetic forecast optimized to
+cal_val_setup = 'cal'   #what was the optimization setup? options: 'cal' '5fold' '5fold-test'
+opt_strat = 'ecrps-dts' #what was the loss function strateg? default: 'ecrps-dts'
+obj_pwr = 0             #what was the objection function weighting across leads? default: 0 
+has_86 = T              #does the HEFS training data include 1986 special run?
 
+#calculation setup
+disp_pcnt <- 0.99       #what percentile of the data to calculate statistics against? 
+
+#directory for synthetic forecasts
 path = paste('../Synthetic-Forecast-v',syn_vers,'-FIRO-DISES/',sep='')
 
+#path to output data; default is to output to a 'data' subrepo in the specified root directory in Line 7 above
+path_out = './data'
+
+#//////////////////////////////////////////////////////////////////////////////////
+
+if (!dir.exists(path_out)) {
+  dir.create(path_out,recursive=T)
+}
+
+#load data
 if(has_86==T){
 load(paste(path,'out/',loc,'/data_prep_rdata86.RData',sep=''))
 cur_site <- which(site_names==disp_site)
@@ -69,15 +75,11 @@ source('./src/forecast_verification_functions.R')
 
 ixx_obs_forward_wy <- wy_fun(ixx_obs_forward)
 
-##if(loc=='SOD'){
-  ##hefs_fwd[,ixx_obs_forward_wy$year%in%97:100,] <- shefs_fwd[1,,ixx_obs_forward_wy$year%in%97:100,]
-##}
-
 #calculate climatology array
 climo_farray <- climo_forecast(ixx_obs_forward,hefs_fwd,obs_fwd)
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////
-#Ensemble plots
+#calculate date indices
 hefs_eval <- hefs_fwd[,ixx_keep,]
 shefs_eval<- shefs_fwd[,,ixx_keep,]
 climo_eval <- climo_farray[,ixx_keep,]
@@ -93,11 +95,10 @@ saveRDS(obs_eval,paste('./data/',loc,'-',disp_site,'_obs-eval.rds',sep=''))
 saveRDS(obs_key,paste('./data/',loc,'-',opt_site,'_obs-key.rds',sep=''))
 saveRDS(ixx_eval,paste('./data/',loc,'-',disp_site,'_ixx-eval.rds',sep=''))
 
-###############eCRPS + Rank Histogram####################################
-lds<-1:leads  #specify leads (no more than 5 for plotting constraints)
+#calculate specified subset of the data for calculation
+lds<-1:leads  
 n_evts<- round((1-disp_pcnt) * length(obs_eval))
 
-###eCRPS###
 obs_date_loc <- order(obs_key,decreasing=TRUE)[1:n_evts]  #index for maximum observation
 rmv_idx <- which(obs_date_loc<=leads)
 if(length(rmv_idx)>0){
@@ -109,6 +110,7 @@ if(length(rmv_idx)>0){
 obs_events <- obs_eval[obs_date_loc]
 samps <- dim(shefs_eval)[1]
 
+#calculate eCRPS and rank histogram data
 hefs_ecrps_vec<-array(NA,c(n_evts,length(lds)))
 shefs_ecrps_vec<-array(NA,c(samps,n_evts,length(lds)))
 climo_ecrps_vec<-array(NA,c(n_evts,length(lds)))
@@ -116,6 +118,7 @@ climo_ecrps_vec<-array(NA,c(n_evts,length(lds)))
 hefs_rank_vec <- array(NA,c(n_evts,length(lds)))
 shefs_rank_vec <- array(NA,c(samps,n_evts,length(lds)))
 
+#HEFS
 for(ld in 1:length(lds)){
   for(i in 1:n_evts){
     hefs_idx <- obs_date_loc[i]-lds[ld] #need to back up by lds[ld] because forecasts are in 'forward' format
@@ -131,6 +134,7 @@ saveRDS(hefs_ecrps_vec,paste('./data/',loc,'-',disp_site,'_pct=',disp_pcnt,'_hef
 saveRDS(climo_ecrps_vec,paste('./data/',loc,'-',disp_site,'_pct=',disp_pcnt,'_climo-ecrps-vec.rds',sep=''))
 saveRDS(hefs_rank_vec,paste('./data/',loc,'-',disp_site,'_pct=',disp_pcnt,'_hefs-rank-vec.rds',sep=''))
 
+#sHEFS
 for(s in 1:samps){
   for(ld in 1:length(lds)){
     for(i in 1:n_evts){
@@ -146,7 +150,7 @@ for(s in 1:samps){
 saveRDS(shefs_ecrps_vec,paste('./data/',loc,'-',disp_site,'_pcntile=',disp_pcnt,'_setup=',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_shefs-ecrps-vec.rds',sep=''))
 saveRDS(shefs_rank_vec,paste('./data/',loc,'-',disp_site,'_pcntile=',disp_pcnt,'_setup=',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_shefs-rank-vec.rds',sep=''))
 
-#calc CRPS-SS
+#calculate eCRPS skill score
 hefs_ecrps_ss <- 1 - hefs_ecrps_vec/climo_ecrps_vec
 shefs_ecrps_ss <- array(NA,dim(shefs_ecrps_vec))
 for(i in 1:dim(shefs_ecrps_vec)[1]){
@@ -166,6 +170,7 @@ shefs_sdev_vec <- array(NA,c(samps,n_evts,length(lds)))
 hefs_pbias_vec <- array(NA,c(n_evts,length(lds)))
 shefs_pbias_vec <- array(NA,c(samps,n_evts,length(lds)))
 
+#HEFS
 for(ld in 1:length(lds)){
   for(i in 1:n_evts){
     hefs_idx <- obs_date_loc[i]-lds[ld] #need to back up by lds[ld] because forecasts are in 'forward' format
@@ -180,6 +185,7 @@ saveRDS(hefs_mse_vec,paste('./data/',loc,'-',disp_site,'_pct=',disp_pcnt,'_hefs-
 saveRDS(hefs_sdev_vec,paste('./data/',loc,'-',disp_site,'_pct=',disp_pcnt,'_hefs-sdev-vec.rds',sep=''))
 saveRDS(hefs_pbias_vec,paste('./data/',loc,'-',disp_site,'_pct=',disp_pcnt,'_hefs-pbias-vec.rds',sep=''))
 
+#sHEFS
 for(s in 1:samps){
   for(ld in 1:length(lds)){
     for(i in 1:n_evts){
@@ -208,6 +214,7 @@ hefs_ecrps_pk <- array(NA,c(neval_evts,leads))
 climo_ecrps_pk <- array(NA,c(neval_evts,leads))
 shefs_ecrps_pk <- array(NA,c(dim(shefs_ecrps_vec)[1],neval_evts,leads))
 
+#HEFS
 for(ld in 1:length(lds)){
   for(i in 1:neval_evts){
     hefs_idx <- eval_evts[i]-lds[ld] #need to back up by lds[ld] because forecasts are in 'forward' format
@@ -218,6 +225,7 @@ for(ld in 1:length(lds)){
   }
 }
 
+#sHEFS
 for(s in 1:samps){
   for(ld in 1:length(lds)){
     for(i in 1:neval_evts){

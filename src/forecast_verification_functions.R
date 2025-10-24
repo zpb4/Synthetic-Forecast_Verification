@@ -170,7 +170,10 @@ climo_forecast <- function(dtg_vec,hefs_array,obs_forward_array){
       dy <- doy[dtg_vec$year%in%yrs_idx[i]][jday]
       doy_idx <- rep(NA,length(dtg_vec))
       doy_idx[dtg_vec$year%in%climo_yrs] <- doy[dtg_vec$year%in%climo_yrs]
-      d_idx <- which(doy_idx==dy)
+      d_idx <- c()
+      for(k in 1:length(climo_yrs)){
+        d_idx[k] = which(doy_idx==dy & dtg_vec$year==climo_yrs[k])
+      }
       climo_inp[,j,] <- obs_forward_array[d_idx,]
     }
     climo_farray[,dtg_vec$year%in%yrs_idx[i],] <- climo_inp

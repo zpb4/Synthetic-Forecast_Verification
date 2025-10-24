@@ -1,5 +1,5 @@
 #Script to print out 4x4 ensemble plots for lead times and events specified in the modifiable parameters
-#Does NOT print the resampled HEFS hindcasts and the scaling vectors for reference (fix in progress)
+#Also prints the resampled HEFS hindcasts and the scaling vectors for reference
 #This script plots for the top X (X = 'plt_evts') events in the HINDCAST period
 #HEFS plot in top row and 3 samples of sHEFS in bottom 3 rows
 
@@ -37,6 +37,7 @@ has_86 = T              #does the HEFS training data include 1986 special run?
 lds = c(10,5,3,1)       #which leads do you want to display (pick 4 ideally)
 plt_evts = 10           #how many events do you want to plots; these are top X declustered events
 sep = 15                #required separation (days) to label separate peak flow 'events'
+seed = 1                #to set random sHEFS samples for repeatability
 
 #path to forecasts
 path = paste('z:/Synthetic-Forecast-v',syn_vers,'-FIRO-DISES/',sep='')
@@ -62,15 +63,18 @@ cur_site <- which(site_names==disp_site)
 idx_site <- which(site_names==opt_site)
 
 syn_hefs_forward <- readRDS(paste(path,'out/',loc,'/syn_hefs_forward_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_',opt_site,'_',cal_val_setup,'_plot-ens.rds',sep=''))
+hefs_scale <- readRDS(file=paste(path,'out/',loc,'/hefs-scale_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_',opt_site,'_',cal_val_setup,'.rds',sep=''))
+hefs_resamps <- readRDS(file=paste(path,'out/',loc,'/hefs-resamps_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_',opt_site,'_',cal_val_setup,'.rds',sep=''))
 shefs_fwd <- syn_hefs_forward[,cur_site,,,]
+hefs_sc <- hefs_scale[,cur_site,,]
 hefs_fwd_sset <- hefs_forward[cur_site,,,]
 
-rm(syn_hefs_forward,hefs_forward,hefs_forward_cumul,hefs_forward_frac,hefs_forward_cumul_ens_avg,hefs_forward_cumul_ens_resid,obs_forward_all_leads_hind)
+rm(hefs_scale,syn_hefs_forward,hefs_forward,hefs_forward_cumul,hefs_forward_frac,hefs_forward_cumul_ens_avg,hefs_forward_cumul_ens_resid,obs_forward_all_leads_hind)
 gc()
 
 hefs_fwd <- shefs_fwd[1,,,]
 hefs_idx <- ixx_obs_forward%in%ixx_hefs
-hefs_fwd[,hefs_idx,] <- hefs_fwd_sset[,ixx_hefs%in%ixx_obs_forward,]
+hefs_fwd[,hefs_idx,] <- hefs_fwd_sset
 
 if(has_86==T){
   hefs86_idx <- ixx_obs_forward%in%ixx_hefs86
@@ -78,8 +82,13 @@ if(has_86==T){
 
 source('./src/forecast_verification_functions.R')
 
+ixx_obs_forward_wy <- wy_fun(ixx_obs_forward)
+
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////
 ##############Ensemble Plots###############
+n_evts = 10
+sep = 15
+
 obs_extract <- obs[,idx_site]
 obs_extract[!ixx_obs%in%ixx_hefs] <- 0
 obs_evt_idx <- declust_evts_extract(obs_extract,plt_evts,sep,max_lds = 15)
@@ -101,10 +110,9 @@ clrs<-palette.colors()
 
 
 ##########################HEFS plot###########################################
-lds = c(10,5,3,1)
 hefs_plts = vector('list',length(lds))
 ylm_scale = 1.5
-plt_evts = 5
+
 
 for(k in 1:plt_evts){
   show_x = F
@@ -236,8 +244,132 @@ comb_gplot<-marrangeGrob(c(hefs_plts,shefs_plts),nrow=samps+1,ncol=length(lds),t
 
 ggsave(paste(path_out,loc,'_',disp_site,'_hefs-shefs-ens-plot_setup=',cal_val_setup,'_pct=',opt_pcnt,'_pwr=',obj_pwr,'_strat=',opt_strat,'_evt=',k,'_lds=',str_flatten(lds,collapse='-'),'_seed=',seed,'.png',sep=''),comb_gplot,dpi=320,width=3*length(lds),height=2.5*(samps+1),unit='in')
 
-}
+
 #////////////////////////////////////////////////////////////////////////////
+
+##########################sHEFS sample plot###########################################
+samps = 3
+shefs_plts = vector('list',length(lds)*samps)
+#ylm_scale = 1.5
+#show_x = T
+show_x = c(rep(F,(samps-1)*length(lds)),rep(T,length(lds)))
+
+set.seed(seed)
+samp_idx <- sample(1:10,samps);samp_vec <- rep(samp_idx,each=length(lds))
+ldsv <- rep(lds,samps)
+
+for(i in 1:(length(lds)*samps)){
+  hefs_samp_idx <- which(as.character(ixx_obs_forward)==hefs_resamps[samp_vec[i],obs_evt_idx[k]-ldsv[i]])
+  hefs_plt_dt <- data.table(x=0:leads,hefs=rbind(rep(obs_gen[hefs_samp_idx],dim(hefs_fwd)[1]),t(hefs_fwd[,hefs_samp_idx,])),
+                                      obs=c(obs_gen[hefs_samp_idx],obs_fwd_gen[hefs_samp_idx,]))
+  
+  ylm = ylm_scale * max(hefs_plt_dt$obs)
+  #convert to long form
+  df <- melt(hefs_plt_dt,id='x')
+  
+  #assign long form df to 'obs' and 'hefs' groups
+  df$col <- factor(ifelse(df$variable=="obs",1,2),levels=1:2,labels=c("obs","hefs"))
+  
+  hefs_ens_plt<-ggplot(df)+theme_minimal()+
+    #geom_smooth(mapping=aes(x=x,y=value,group=variable,color=grp,size=grp,alpha=grp),se=F,span=.15)+
+    geom_line(mapping=aes(x=x,y=value,group=variable,color=col,linewidth=col,alpha=col))+
+    scale_color_manual(values=c('obs'=clrs[[1]],'hefs'=clrs[[9]]))+
+    scale_linewidth_manual(values=c('obs'=1.5,'hefs'=.75))+
+    scale_alpha_manual(values=c('obs'=1,'hefs'=.35))+
+    scale_x_continuous(breaks=0:leads,labels=0:leads)+
+    geom_vline(xintercept = ldsv[i],linetype='dotted',linewidth=0.5)+
+    {if(ldsv[i]>5)annotate('text',x=ldsv[i],y=0.95*ylm,label=ixx_obs_forward[hefs_samp_idx+ldsv[i]],size=4,hjust=1.15)}+
+    {if(ldsv[i]<=5)annotate('text',x=ldsv[i],y=0.95*ylm,label=ixx_obs_forward[hefs_samp_idx+ldsv[i]],size=4,hjust=-0.15)}+
+    #annotate('text',x=1,y=850,label='b)',size=6)+
+    labs(x='forecast lead (hrs)',y='flow (kcfs)')+
+    coord_cartesian(xlim=c(0,leads),ylim=c(0,ylm),expand=F)+
+    theme(axis.text=element_text(size=10),
+          axis.title=element_text(size=12),
+          panel.grid.major.y = element_line(size=1),
+          panel.grid.major.x = element_line(size=1))+
+    {if(i==1)
+      theme(legend.position = 'inside',
+            legend.position.inside = c(.1,.9),
+            legend.box = 'horizontal',
+            legend.key.spacing.y = unit(0.01,'cm'),
+            legend.key.spacing.x = unit(0.01,'cm'),
+            legend.title=element_blank(),
+            legend.text = element_text(size=12))}+
+    {if(i!=1)theme(legend.position = 'none')}+
+    #{if(ldsv[i]!=lds[1])
+      #theme(axis.text.y=element_blank(),
+            #axis.title.y=element_blank())}+
+    {if(show_x[i]==F)
+      theme(axis.text.x=element_blank(),
+            axis.title.x=element_blank())}
+  
+  shefs_plts[[i]] <- hefs_ens_plt}
+
+layout_mat <- matrix(1:(samps*length(lds)),nrow=samps,ncol=length(lds),byrow=T)
+shefs_gplot<-marrangeGrob(shefs_plts,nrow=samps,ncol=length(lds),top='',layout_matrix = layout_mat)
+#shefs_gplot
+
+ggsave(paste(path_out,loc,'_',disp_site,'_shefs-hefs-samp-plot_setup=',cal_val_setup,'_pct=',opt_pcnt,'_pwr=',obj_pwr,'_strat=',opt_strat,'_evt=',k,'_lds=',str_flatten(lds,collapse='-'),'_seed=',seed,'.png',sep=''),shefs_gplot,dpi=320,width=3*length(lds),height=2.5*(samps),unit='in')
+
+
+##########################sHEFS scale plot###########################################
+samps = 3
+shefs_plts = vector('list',length(lds)*samps)
+#ylm_scale = 1.5
+#show_x = T
+show_x = c(rep(F,(samps-1)*length(lds)),rep(T,length(lds)))
+
+set.seed(seed)
+samp_idx <- sample(1:10,samps);samp_vec <- rep(samp_idx,each=length(lds))
+ldsv <- rep(lds,samps)
+
+for(i in 1:(length(lds)*samps)){
+  hefs_plt_dt <- data.table(x=1:leads,hefs=hefs_sc[samp_vec[i],obs_evt_idx[k]-ldsv[i],])
+  
+  ylm = 1.1 * max(hefs_plt_dt$hefs)
+  #convert to long form
+  df <- melt(hefs_plt_dt,id='x')
+  
+  #assign long form df to 'obs' and 'hefs' groups
+  hefs_ens_plt<-ggplot(df)+theme_minimal()+
+    #geom_smooth(mapping=aes(x=x,y=value,group=variable,color=grp,size=grp,alpha=grp),se=F,span=.15)+
+    geom_line(mapping=aes(x=x,y=value),linewidth=2,color='black')+
+    scale_x_continuous(breaks=1:leads,labels=1:leads)+
+    geom_vline(xintercept = ldsv[i],linetype='dotted',linewidth=0.5)+
+    geom_hline(yintercept = 1,linetype='dotted',linewidth=0.5,color='orange4')+
+    labs(x='forecast lead (hrs)',y='scale factor')+
+    {if(i%in%c(1:length(lds)))
+      annotate('text',x=lds[i],y=0.95*ylm,label=obs_dates[k],size=4,hjust=-0.05)}+
+    coord_cartesian(xlim=c(0,leads),ylim=c(0,ylm),expand=F)+
+    theme(axis.text=element_text(size=10),
+          axis.title=element_text(size=12),
+          panel.grid.major.y = element_line(linewidth=1),
+          panel.grid.major.x = element_line(linewidth=1))+
+    {if(i==1)
+      theme(legend.position = 'inside',
+            legend.position.inside = c(.2,.9),
+            legend.box = 'horizontal',
+            legend.key.spacing.y = unit(0.01,'cm'),
+            legend.key.spacing.x = unit(0.01,'cm'),
+            legend.title=element_blank(),
+            legend.text = element_text(size=12))}+
+    {if(i!=1)theme(legend.position = 'none')}+
+    #{if(ldsv[i]!=lds[1])
+      #theme(axis.text.y=element_blank(),
+            #axis.title.y=element_blank())}+
+    {if(show_x[i]==F)
+      theme(axis.text.x=element_blank(),
+            axis.title.x=element_blank())}
+  
+  shefs_plts[[i]] <- hefs_ens_plt}
+
+layout_mat <- matrix(1:(samps*length(lds)),nrow=samps,ncol=length(lds),byrow=T)
+shefs_gplot<-marrangeGrob(shefs_plts,nrow=samps,ncol=length(lds),top='',layout_matrix = layout_mat)
+#shefs_gplot
+
+ggsave(paste(path_out,loc,'_',disp_site,'_shefs-scale-plot_setup=',cal_val_setup,'_pct=',opt_pcnt,'_pwr=',obj_pwr,'_strat=',opt_strat,'_evt=',k,'_lds=',str_flatten(lds,collapse='-'),'_seed=',seed,'.png',sep=''),shefs_gplot,dpi=320,width=3*length(lds),height=2.5*(samps),unit='in')
+
+}
 
 
 ##############################END###############################################################

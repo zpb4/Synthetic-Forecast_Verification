@@ -1,9 +1,16 @@
+#Script to print out plots of verification metrics calculated in 'calc_ecrps-rankhist_base_xhindcast.R' script
+#Specifications here much match those of the calculation script, or it will need to be rerun
+#The x-hindcast verification statistics are compared to the hindcast verification statistics for reference
 
+#Note: The current 'ylm' specifications for each plot are currently hard set and may need to be modified for 
+#different sites; will update this to adjust to the data
 
+#Load packages
 rm(list=ls());gc()
 library(fields)
 library(scales)
 library(zoo)
+library(scales)
 library(tidyverse)
 library(data.table)
 library(gridExtra)
@@ -11,35 +18,42 @@ library(ks)
 library(viridis)
 library(RColorBrewer)
 library(latex2exp)
-library(abind)
-
-setwd('z:/Synthetic-Forecast_Verification/')
-#///////////////////////////////////////////////////////////////////////////////////////////////////////////
-#Data setup
-syn_vers = 2
-loc = 'SOD'
-site = 'SRWC1'
-disp_site = 'SRWC1'
-opt_pcnt = 0.99
-cal_val_setup = 'cal' # 'cal' '5fold' '5fold-test
-opt_strat = 'ecrps-dts'
-obj_pwr = 0
-
-#plot setup
-disp_pcnt <- 0.99
 clrs<-palette.colors()
-leads = 14
 
-if (!dir.exists(paste('e:/Projects/FIRO/firo_syn-forecast_production/figs/',disp_site,'/',cal_val_setup,opt_pcnt,opt_strat,obj_pwr,
-                      '/',sep=''))) {
-  dir.create(paste('e:/Projects/FIRO/firo_syn-forecast_production/figs/',disp_site,'/',cal_val_setup,opt_pcnt,opt_strat,obj_pwr,
-                   '/',sep=''),recursive=T)
-}
+#root directory
+setwd('z:/Synthetic-Forecast_Verification/')
 
+#Primary modifiable input parameters
+#////////////////////////////////////////////////////////////////////////////////
+#location and site info
+loc = 'YRS'             #overall location
+opt_site = 'ORDC1'      #keysite for the synthetic forecasting run
+disp_site = 'ORDC1'     #what site you want to display
+
+#synthetic forecast setup specifics; should match generation setup you want to look at
+syn_vers = 2            #which synthetic version to use (probably 2)
+opt_pcnt = 0.99         #what percentile of the data was the synthetic forecast optimized to
+cal_val_setup = 'cal'   #what was the optimization setup? options: 'cal' '5fold' '5fold-test'
+opt_strat = 'ecrps-dts' #what was the loss function strateg? default: 'ecrps-dts'
+obj_pwr = 0             #what was the objection function weighting across leads? default: 0 
+has_86 = T              #does the HEFS training data include 1986 special run?
+
+#plot setup (must match what was calculated in the 'calc_ecrps-rankhist_base.R' script)
+disp_pcnt <- 0.99
+
+#path to synthetic forecast repo
+path = paste('z:/Synthetic-Forecast-v',syn_vers,'-FIRO-DISES/',sep='')
+
+#output path
 path_out = paste('e:/Projects/FIRO/firo_syn-forecast_production/figs/',disp_site,'/',cal_val_setup,opt_pcnt,opt_strat,obj_pwr,
                  '/',sep='')
 
-path = paste('z:/Synthetic-Forecast-v',syn_vers,'-FIRO-DISES/',sep='')
+#//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+if (!dir.exists(path_out)) {
+  dir.create(path_out,recursive=T)
+}
+
 load(paste(path,'out/',loc,'/data_prep_rdata.RData',sep=''))
 rm(hefs_forward,hefs_forward_cumul,hefs_forward_frac,hefs_forward_cumul_ens_avg,hefs_forward_cumul_ens_resid,obs_forward_all_leads_hind)
 gc()
@@ -66,11 +80,11 @@ shefs_ecrps_ss_pk<-readRDS(paste('./data/',loc,'-',disp_site,'_',cal_val_setup,'
 source('./src/forecast_verification_functions.R')
 
 obs_eval <- readRDS(paste('./data/',loc,'-',disp_site,'_obs-eval.rds',sep=''))
-obs_key <- readRDS(paste('./data/',loc,'-',site,'_obs-key.rds',sep=''))
+obs_key <- readRDS(paste('./data/',loc,'-',opt_site,'_obs-key.rds',sep=''))
 ixx_eval <- readRDS(paste('./data/',loc,'-',disp_site,'_ixx-eval.rds',sep=''))
 
 obs_eval_xhc <- readRDS(paste('./data/',loc,'-',disp_site,'_obs-eval_xhc.rds',sep=''))
-obs_key_xhc <- readRDS(paste('./data/',loc,'-',site,'_obs-key_xhc.rds',sep=''))
+obs_key_xhc <- readRDS(paste('./data/',loc,'-',opt_site,'_obs-key_xhc.rds',sep=''))
 ixx_eval_xhc <- readRDS(paste('./data/',loc,'-',disp_site,'_ixx-eval_xhc.rds',sep=''))
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////

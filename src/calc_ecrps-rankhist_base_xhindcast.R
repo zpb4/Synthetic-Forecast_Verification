@@ -1,38 +1,45 @@
+#Script to calculate verification statistics for the x-HINDCAST period (outside of HINDCAST period [+ or -])
 
-#args = commandArgs(trailingOnly=TRUE)
-#print(paste('task #',args[1]))
-#idx = as.numeric(args[1])
-
-
+#NOTE: This script can be time-consuming to run and requires a lot of RAM; best to run on HPC if possible
 print(paste('calc start',Sys.time()))
 
-#library(abind)
-#library(doParallel)
-#parallel::detectCores()
-#n.cores <- parallel::detectCores()
-#my.cluster<-parallel::makeCluster(n.cores,type = 'FORK',methods=F,useXDR=F)
-#my.cluster<-parallel::makeCluster(n.cores,type = 'PSOCK')
-#print(my.cluster)
-#doParallel::registerDoParallel(cl = my.cluster)
-#foreach::getDoParRegistered()
+#set root directory
+#setwd('z:/Synthetic-Forecast_Verification/')
 
+#Load packages
+library(lubridate)
+
+#Primary modifiable input parameters
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////
-#Data setup
-syn_vers = 2
-loc = 'SOD'
-opt_site = 'SRWC1'
-disp_site = 'SRWC1'
-opt_pcnt = 0.9901
-cal_val_setup = 'cal' # 'cal' '5fold' '5fold-test'
-obj_pwr = 0
-opt_strat = 'ecrps-dts'
-has_86 = F
+#location and site info
+loc = 'YRS'             #overall location
+opt_site = 'ORDC1'      #keysite for the synthetic forecasting run
+disp_site = 'ORDC1'     #what site you want to display
 
-#plot setup
-disp_pcnt <- 0.995
+#synthetic forecast setup specifics; should match generation setup you want to look at
+syn_vers = 2            #which synthetic version to use (probably 2)
+opt_pcnt = 0.99         #what percentile of the data was the synthetic forecast optimized to
+cal_val_setup = 'cal'   #what was the optimization setup? options: 'cal' '5fold' '5fold-test'
+opt_strat = 'ecrps-dts' #what was the loss function strateg? default: 'ecrps-dts'
+obj_pwr = 0             #what was the objection function weighting across leads? default: 0 
+has_86 = T              #does the HEFS training data include 1986 special run?
 
+#calculation setup
+disp_pcnt <- 0.99       #what percentile of the data to calculate statistics against? 
+
+#directory for synthetic forecasts
 path = paste('../Synthetic-Forecast-v',syn_vers,'-FIRO-DISES/',sep='')
 
+#path to output data; default is to output to a 'data' subrepo in the specified root directory in Line 7 above
+path_out = './data'
+
+#//////////////////////////////////////////////////////////////////////////////////
+
+if (!dir.exists(path_out)) {
+  dir.create(path_out,recursive=T)
+}
+
+#load data
 if(has_86==T){
 load(paste(path,'out/',loc,'/data_prep_rdata86.RData',sep=''))
 cur_site <- which(site_names==disp_site)
@@ -43,7 +50,7 @@ load(paste(path,'out/',loc,'/data_prep_rdata.RData',sep=''))
 cur_site <- which(site_names==disp_site)
 idx_site <- which(site_names==opt_site)
 
-syn_hefs_forward <- readRDS(paste(path,'out/',loc,'/syn_hefs_forward_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_',opt_site,'_',cal_val_setup,'.rds',sep=''))
+syn_hefs_forward <- readRDS(paste(path,'out/',loc,'/syn_hefs_forward_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_',opt_site,'_',cal_val_setup,'_plot-ens.rds',sep=''))
 shefs_fwd <- syn_hefs_forward[,cur_site,,,]
 obs_fwd <- obs_forward_all_leads[cur_site,,]
 
@@ -51,8 +58,8 @@ rm(syn_hefs_forward,hefs_forward,hefs_forward_cumul,hefs_forward_frac,hefs_forwa
 gc()
 
 if(has_86==T){
-  ixx_keep = !ixx_obs_forward%in%c(ixx_hefs,ixx_hefs_86)
-  nevt_ref = c(ixx_hefs,ixx_hefs_86)}
+  ixx_keep = !ixx_obs_forward%in%c(ixx_hefs,ixx_hefs86)
+  nevt_ref = c(ixx_hefs,ixx_hefs86)}
 
 if(has_86==F){
   ixx_keep = !ixx_obs_forward%in%c(ixx_hefs)
@@ -64,7 +71,7 @@ source('./src/forecast_verification_functions.R')
 climo_farray <- climo_forecast(ixx_obs_forward,shefs_fwd[1,,,],obs_fwd)
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////
-#Ensemble plots
+#calculate date indices
 shefs_eval<- shefs_fwd[,,ixx_keep,]
 climo_eval <- climo_farray[,ixx_keep,]
 obs_in <- obs[ixx_obs%in%ixx_obs_forward,cur_site]
@@ -82,11 +89,10 @@ saveRDS(ixx_eval,paste('./data/',loc,'-',disp_site,'_ixx-eval_xhc.rds',sep=''))
 hefs_len <- length(unique(ixx_hefs$year))
 syn_len <- length(unique(ixx_eval$year))
 
-###############eCRPS + Rank Histogram####################################
-lds<-1:leads  #specify leads (no more than 5 for plotting constraints)
+#calculate indices for events based on specified percentile
+lds<-1:leads  
 n_evts<- round((1-disp_pcnt) * length(obs_eval))
 
-###eCRPS###
 obs_date_loc <- order(obs_key,decreasing=TRUE)[1:n_evts]  #index for maximum observation
 rmv_idx <- which(obs_date_loc<=leads)
 if(length(rmv_idx)>0){
@@ -100,6 +106,8 @@ samps <- dim(shefs_eval)[1]
 
 
 #resample x-hindcast period at lengths equal to HEFS dataset
+#NOTE: If x-hindcast period is longer than HEFS, this is done without replacement from the x-hindcast record
+#If x-hindcast period is shorter than HEFS, this is done with replacement from x-hindcast record
 obs_events_mat <- matrix(rep(obs_events,samps),ncol=samps,byrow=F)
 obs_dloc_mat <- matrix(rep(obs_date_loc,samps),ncol=samps,byrow=F)
 
@@ -118,6 +126,9 @@ for(i in 1:samps){
   obs_events <- obs_eval[ixx_eval%in%obs_dates]
   obs_date_loc <- c(1:length(obs_key))[ixx_eval%in%obs_dates] 
   rmv_idx <- which(obs_date_loc<=leads)
+  idx_close_86 <- seq(as.Date(tail(ixx_hefs86,1)+(60*60*24)),as.Date(tail(ixx_hefs86,1)+(60*60*24*leads)),by='day')
+  if(any(obs_dates%in%idx_close_86==T)){
+    rmv_idx <- c(rmv_idx,1:length(obs_dates)[obs_dates%in%idx_close_86])}
   if(length(rmv_idx)>0){
     pool <- order(obs_key,decreasing=TRUE)[(n_evts+1):(n_evts+100)]
     pool <- pool[pool>leads]
@@ -128,6 +139,8 @@ for(i in 1:samps){
   obs_dloc_mat[,i] <- obs_date_loc
 }
 
+
+#calculate the eCRPS statistic and rank histogram data for the specified subset
 shefs_ecrps_vec<-array(NA,c(samps,n_evts,length(lds)))
 climo_ecrps_vec<-array(NA,c(samps,n_evts,length(lds)))
 shefs_rank_vec <- array(NA,c(samps,n_evts,length(lds)))
@@ -150,7 +163,7 @@ saveRDS(shefs_ecrps_vec,paste('./data/',loc,'-',disp_site,'_pcntile=',disp_pcnt,
 saveRDS(shefs_ecrps_vec,paste('./data/',loc,'-',disp_site,'_pcntile=',disp_pcnt,'_setup=',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_climo-ecrps-vec_xhc.rds',sep=''))
 saveRDS(shefs_rank_vec,paste('./data/',loc,'-',disp_site,'_pcntile=',disp_pcnt,'_setup=',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_shefs-rank-vec_xhc.rds',sep=''))
 
-#calc CRPS-SS
+#calc eCRPS skill score
 shefs_ecrps_ss <- 1 - shefs_ecrps_vec/climo_ecrps_vec
 
 saveRDS(shefs_ecrps_ss,paste('./data/',loc,'-',disp_site,'_pcntile=',disp_pcnt,'_setup=',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_shefs-ecrps-ss_xhc.rds',sep=''))
@@ -201,7 +214,7 @@ for(s in 1:samps){
 saveRDS(shefs_ecrps_pk,paste('./data/',loc,'-',disp_site,'_',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_shefs-ecrps-peak10_xhc.rds',sep=''))
 saveRDS(climo_ecrps_pk,paste('./data/',loc,'-',disp_site,'_',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_climo-ecrps-peak10_xhc.rds',sep=''))
 
-#calc CRPS-SS
+#calculate eCRPS skill score
 shefs_ecrps_ss_pk <- 1 - shefs_ecrps_pk/climo_ecrps_pk
 
 saveRDS(shefs_ecrps_ss_pk,paste('./data/',loc,'-',disp_site,'_',cal_val_setup,'_pcnt=',opt_pcnt,'_objpwr=',obj_pwr,'_optstrat=',opt_strat,'_shefs-ecrps-ss-peak10_xhc.rds',sep=''))
@@ -210,6 +223,5 @@ saveRDS(shefs_ecrps_ss_pk,paste('./data/',loc,'-',disp_site,'_',cal_val_setup,'_
 print(paste('calc end',Sys.time()))
 
 rm(list=ls());gc()
-
 
 #####################################################END###################################################

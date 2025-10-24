@@ -1,38 +1,55 @@
+#Script to print out 3x4 ensemble plots for lead times and events specified in the modifiable parameters
+#Also prints the resampled HEFS hindcasts and the scaling vectors for reference
+#This script plots for the top X (X = 'plt_evts') events in the x-HINDCAST period (outside of HINDCAST period [+ or -]; does not include HEFS)
+#3 samples of sHEFS in 3 rows
 
+#**NOTE1: Plotting of resampled HEFS hindcasts and scaling vector is currently only operational for the 'cal' setting
+#You can run the 'plot_ensembles-only_ggplot.R' script for '5fold' or '5fold-test' settings if you don't want errors on the last two plotting scripts
+#**NOTE: You must have run the slice_plot_ens.R script in the Synthetic forecasting code for this script to work
+#The slice_plot-ens.R simply removes a smaller 10-sample chunk from the 'default' 100 sample synthetic forecasting output
 
+#Load packages
 rm(list=ls());gc()
 library(fields)
 library(scales)
 library(zoo)
 library(abind)
-#----------------------------------------
+
+#set root directory
 setwd('z:/Synthetic-Forecast_Verification/')
 
-syn_vers = 2
-loc = 'SOD'
-opt_site = 'SRWC1'
-disp_site = 'SRWC1'
-opt_pcnt = 0.99
-cal_val_setup = '5fold' # 'cal' '5fold' '5fold-test'
-opt_strat = 'ecrps-dts'
-obj_pwr = 0
-has_86 = F
+#Primary modifiable input parameters
+#////////////////////////////////////////////////////////////////////////////////
+#location and site info
+loc = 'YRS'             #overall location
+opt_site = 'ORDC1'      #keysite for the synthetic forecasting run
+disp_site = 'ORDC1'     #what site you want to display
 
-if (!dir.exists(paste('e:/Projects/FIRO/firo_syn-forecast_production/figs/',disp_site,'/',cal_val_setup,opt_pcnt,opt_strat,obj_pwr,
-'/',sep=''))) {
-  dir.create(paste('e:/Projects/FIRO/firo_syn-forecast_production/figs/',disp_site,'/',cal_val_setup,opt_pcnt,opt_strat,obj_pwr,
-                   '/',sep=''),recursive=T)
-}
+#synthetic forecast setup specifics; should match generation setup you want to look at
+syn_vers = 2            #which synthetic version to use (probably 2)
+opt_pcnt = 0.99         #what percentile of the data was the synthetic forecast optimized to
+cal_val_setup = 'cal'   #what was the optimization setup? options: 'cal' '5fold' '5fold-test'
+opt_strat = 'ecrps-dts' #what was the loss function strateg? default: 'ecrps-dts'
+obj_pwr = 0             #what was the objection function weighting across leads? default: 0 
+has_86 = T              #does the HEFS training data include 1986 special run?
 
-path_out = paste('e:/Projects/FIRO/firo_syn-forecast_production/figs/',disp_site,'/',cal_val_setup,opt_pcnt,opt_strat,obj_pwr,
-      '/',sep='')
-#plot setup
-disp_pcnt <- 0.99
-n_samp <- 3
-obs_rank <- 3  #pick which obs event to plot (1 largest, 2 second largest, etc)
-#LAMC1: 1 = 2005 evt, 2 = 1995 evt, 3 = 2019 evt
-seed<-1
+#plotting setup
+lds = c(10,5,3,1)       #which leads do you want to display (pick 4 ideally)
+plt_evts = 10           #how many events do you want to plots; these are top X declustered events
+sep = 15                #required separation (days) to label separate peak flow 'events'
+seed = 1                #to set random sHEFS samples for repeatability
+
+#path to forecasts
 path = paste('z:/Synthetic-Forecast-v',syn_vers,'-FIRO-DISES/',sep='')
+
+#path to output figures
+path_out = paste('e:/Projects/FIRO/firo_syn-forecast_production/figs/',disp_site,'/',cal_val_setup,opt_pcnt,opt_strat,obj_pwr,
+                 '/',sep='')
+#//////////////////////////////////////////////////////////////////////////////////
+
+if (!dir.exists(path_out)) {
+  dir.create(path_out,recursive=T)
+}
 
 if(has_86==T){
   load(paste(path,'out/',loc,'/data_prep_rdata86.RData',sep=''))
@@ -71,21 +88,14 @@ source('./src/forecast_verification_functions.R')
 
 ixx_obs_forward_wy <- wy_fun(ixx_obs_forward)
 
-##if(loc=='SOD'){
-  ##hefs_fwd[,ixx_obs_forward_wy$year%in%97:100,] <- hefs_fwd[,ixx_obs_forward_wy$year%in%93:96,]
-##}
-
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////
 ##############Ensemble Plots###############
-n_evts = 10
-sep = 15
-
 obs_extract <- obs[,idx_site]
 if(has_86==T){
   obs_extract[ixx_obs%in%c(ixx_hefs,ixx_hefs86)] <- 0}
 if(has_86==F){
   obs_extract[ixx_obs%in%ixx_hefs] <- 0}
-obs_evt_idx <- declust_evts_extract(obs_extract,n_evts,sep,max_lds = 15)
+obs_evt_idx <- declust_evts_extract(obs_extract,plt_evts,sep,max_lds = 15)
 obs_gen <- obs[,cur_site]
 obs_fwd_gen <- obs_forward_all_leads[cur_site,,]
 
@@ -103,10 +113,8 @@ library(RColorBrewer)
 clrs<-palette.colors()
 
 ##########################sHEFS plot###########################################
-lds = c(10,5,3,1)
 hefs_plts = vector('list',length(lds))
 ylm_scale = 1.5
-plt_evts = 10
 
 samps = 3
 shefs_plts = vector('list',length(lds)*samps)
@@ -176,12 +184,6 @@ ggsave(paste(path_out,loc,'_',disp_site,'_shefs-ens-plot-xhc_setup=',cal_val_set
 #////////////////////////////////////////////////////////////////////////////
 
 ##########################sHEFS sample plot###########################################
-if(loc=='SOD'){
-  ixx_obs_wy <- wy_fun(ixx_obs)
-  obs_gen[ixx_obs_wy$year%in%97:100] <- obs_gen[ixx_obs_wy$year%in%93:96]
-  obs_fwd_gen[ixx_obs_forward_wy$year%in%97:100,] <- obs_fwd_gen[ixx_obs_forward_wy$year%in%93:96,]
-}
-
 samps = 3
 shefs_plts = vector('list',length(lds)*samps)
 #ylm_scale = 1.5
